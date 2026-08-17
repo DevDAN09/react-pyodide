@@ -9,6 +9,7 @@
   "scripts": {
     "test": "vitest",
     "dev": "vite",
+    "prebuild": "mkdir -p public/pyodide && cp node_modules/pyodide/pyodide.asm.mjs node_modules/pyodide/pyodide.asm.wasm node_modules/pyodide/pyodide-lock.json node_modules/pyodide/python_stdlib.zip public/pyodide/",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --pretty false",
     "test:run": "vitest run",

@@ -3,6 +3,16 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
 
-/assets/*.wasm
+/pyodide/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/pyodide/*.wasm
   Content-Type: application/wasm
+  Cache-Control: public, max-age=31536000, immutable
+
+/pyodide/*.mjs
+  Content-Type: text/javascript
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*
   Cache-Control: public, max-age=31536000, immutable
