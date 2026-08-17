@@ -1,8 +1,27 @@
 {
   "name": "react-pyodide",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.1.0",
+  "description": "High-performance client-side Python runner in React using Pyodide, WebAssembly (WASM), and Web Workers.",
   "main": "index.js",
+  "homepage": "https://main-react-pyodide.devyun09.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DevDAN09/react-pyodide.git"
+  },
+  "keywords": [
+    "react",
+    "pyodide",
+    "webassembly",
+    "wasm",
+    "python",
+    "cpython",
+    "web-worker",
+    "client-side",
+    "cloudflare-workers"
+  ],
+  "author": "DevDAN09",
+  "license": "MIT",
+  "type": "module",
   "directories": {
     "doc": "docs"
   },
@@ -17,10 +36,6 @@
     "deploy": "npm run build && wrangler pages deploy dist",
     "deploy:ci": "wrangler pages deploy dist"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
     "pyodide": "^314.0.3",
