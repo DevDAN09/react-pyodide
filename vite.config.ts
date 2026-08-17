@@ -5,8 +5,24 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name?.startsWith('pyodide.')) {
+            return 'pyodide/[name][extname]'
+          }
+          if (assetInfo.name === 'python_stdlib.zip') {
+            return 'pyodide/[name][extname]'
+          }
+          return 'assets/[name]-[hash][extname]'
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    exclude: ['e2e/**', 'node_modules/**'],
   },
 })
