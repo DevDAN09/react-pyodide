@@ -37,6 +37,19 @@ export interface Translations {
     label: string
     runButton: string
     retryButton: string
+    copyButton: string
+    copiedButton: string
+    clearButton: string
+    resetButton: string
+    shortcutHint: string
+    presetLabel: string
+    presets: {
+      hello: string
+      fibonacci: string
+      primes: string
+      exceptions: string
+      timeout: string
+    }
     status: {
       initializing: string
       ready: string

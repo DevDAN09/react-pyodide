@@ -159,4 +159,37 @@ describe('App', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent(/recover/i)
   })
+
+  it('allows loading preset code and clearing/resetting code', async () => {
+    const { client, resolveInitialization } = createClient()
+    render(<App client={client} />)
+    resolveInitialization()
+    const user = userEvent.setup()
+
+    const select = screen.getByLabelText(/preset code selection/i)
+    await user.selectOptions(select, 'fibonacci')
+
+    const textarea = screen.getByLabelText<HTMLTextAreaElement>(/python code/i)
+    expect(textarea.value).toContain('def fibonacci')
+
+    await user.click(screen.getByRole('button', { name: /지우기|clear/i }))
+    expect(textarea).toHaveValue('')
+
+    await user.click(screen.getByRole('button', { name: /초기화|reset/i }))
+    expect(textarea).toHaveValue('print("hello")\n1 + 2')
+  })
+
+  it('runs python code using Cmd+Enter / Ctrl+Enter shortcut', async () => {
+    const { client, resolveInitialization } = createClient()
+    vi.mocked(client.run).mockResolvedValue(result({ stdout: 'shortcut-ok' }))
+    render(<App client={client} />)
+    resolveInitialization()
+    const user = userEvent.setup()
+
+    const textarea = screen.getByLabelText(/python code/i)
+    await user.type(textarea, '{Meta>}{Enter}{/Meta}')
+
+    expect(vi.mocked(client.run)).toHaveBeenCalled()
+    expect(await screen.findByText('shortcut-ok')).toBeVisible()
+  })
 })
