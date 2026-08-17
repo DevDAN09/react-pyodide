@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CodeEditor } from './components/CodeEditor'
 import { CurrentResult } from './components/CurrentResult'
+import { HeroSection } from './components/HeroSection'
 import {
   createPythonWorkerClient,
   usePythonRunner,
@@ -13,7 +14,7 @@ export function App({ client }: { client?: PythonRunnerClient }) {
 
   return (
     <main>
-      <h1>Python Runner</h1>
+      <HeroSection />
       <CodeEditor {...runner} />
       <CurrentResult result={runner.currentResult} />
     </main>

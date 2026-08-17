@@ -43,6 +43,15 @@ function createClient() {
 }
 
 describe('App', () => {
+  it('renders the architecture hero section', () => {
+    const { client } = createClient()
+    render(<App client={client} />)
+
+    expect(screen.getByRole('heading', { level: 1, name: /react & pyodide wasm runner/i })).toBeVisible()
+    expect(screen.getByText(/web worker/i)).toBeVisible()
+    expect(screen.getByText(/pyodide cpython/i)).toBeVisible()
+  })
+
   it('exposes labelled editor controls and live status semantics', () => {
     const { client } = createClient()
     render(<App client={client} />)
