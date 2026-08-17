@@ -52,6 +52,23 @@ describe('App', () => {
     expect(screen.getByText(/pyodide cpython/i)).toBeVisible()
   })
 
+  it('supports switching between Korean and English', async () => {
+    const { client } = createClient()
+    render(<App client={client} initialLanguage="ko" />)
+
+    expect(screen.getAllByText(/주문서 접수/i)[0]).toBeVisible()
+    expect(screen.getByText(/서버 비용 0원/i)).toBeVisible()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /english/i }))
+
+    expect(screen.getAllByText(/order ingestion/i)[0]).toBeVisible()
+    expect(screen.getByText(/zero server cost/i)).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: /한국어/i }))
+    expect(screen.getAllByText(/주문서 접수/i)[0]).toBeVisible()
+  })
+
   it('exposes labelled editor controls and live status semantics', () => {
     const { client } = createClient()
     render(<App client={client} />)
