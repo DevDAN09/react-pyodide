@@ -15,6 +15,10 @@ class FakeWorker {
   private readonly messageListeners = new Set<
     (event: MessageEvent<WorkerResponseMessage>) => void
   >()
+  private readonly errorListeners = new Set<(event: ErrorEvent) => void>()
+  private readonly messageErrorListeners = new Set<
+    (event: MessageEvent) => void
+  >()
 
   postMessage(message: WorkerRequestMessage) {
     this.postedMessages.push(message)
@@ -22,16 +26,40 @@ class FakeWorker {
 
   addEventListener(
     type: string,
-    listener: (event: MessageEvent<WorkerResponseMessage>) => void,
+    listener: EventListener,
   ) {
-    if (type === 'message') this.messageListeners.add(listener)
+    if (type === 'message') {
+      this.messageListeners.add(
+        listener as (event: MessageEvent<WorkerResponseMessage>) => void,
+      )
+    }
+    if (type === 'error') {
+      this.errorListeners.add(listener as (event: ErrorEvent) => void)
+    }
+    if (type === 'messageerror') {
+      this.messageErrorListeners.add(
+        listener as (event: MessageEvent) => void,
+      )
+    }
   }
 
   removeEventListener(
     type: string,
-    listener: (event: MessageEvent<WorkerResponseMessage>) => void,
+    listener: EventListener,
   ) {
-    if (type === 'message') this.messageListeners.delete(listener)
+    if (type === 'message') {
+      this.messageListeners.delete(
+        listener as (event: MessageEvent<WorkerResponseMessage>) => void,
+      )
+    }
+    if (type === 'error') {
+      this.errorListeners.delete(listener as (event: ErrorEvent) => void)
+    }
+    if (type === 'messageerror') {
+      this.messageErrorListeners.delete(
+        listener as (event: MessageEvent) => void,
+      )
+    }
   }
 
   terminate() {
@@ -44,8 +72,18 @@ class FakeWorker {
     }
   }
 
+  emitError(message: string) {
+    for (const listener of this.errorListeners) {
+      listener(new ErrorEvent('error', { message }))
+    }
+  }
+
   get listenerCount() {
-    return this.messageListeners.size
+    return (
+      this.messageListeners.size +
+      this.errorListeners.size +
+      this.messageErrorListeners.size
+    )
   }
 }
 
@@ -89,6 +127,38 @@ describe('PyodideWorkerClient', () => {
     workers[0].emit({ type: 'ready' })
 
     await expect(initialized).resolves.toBeUndefined()
+  })
+
+  it('replaces a worker after init failure before retrying', async () => {
+    const { client, workers } = createHarness()
+
+    const firstInitialization = client.initialize()
+    workers[0].emit({ type: 'init-error', error: 'Unable to load Pyodide' })
+
+    await expect(firstInitialization).rejects.toMatchObject({
+      code: 'PYTHON_INIT',
+    })
+    expect(workers[0].terminated).toBe(true)
+    expect(workers).toHaveLength(2)
+
+    const retry = client.initialize()
+    expect(workers[1].postedMessages).toEqual([{ type: 'init' }])
+    workers[1].emit({ type: 'ready' })
+    await expect(retry).resolves.toBeUndefined()
+  })
+
+  it('rejects initialization when the worker emits an error', async () => {
+    const { client, workers } = createHarness()
+
+    const initialized = client.initialize()
+    workers[0].emitError('Worker module failed to load')
+
+    await expect(initialized).rejects.toMatchObject({
+      code: 'PYTHON_INIT',
+      message: 'Worker module failed to load',
+    })
+    expect(workers[0].terminated).toBe(true)
+    expect(workers).toHaveLength(2)
   })
 
   it('matches results to request ids', async () => {
@@ -167,9 +237,38 @@ describe('PyodideWorkerClient', () => {
     await expect(recoveredRun).resolves.toMatchObject({ result: '42' })
   })
 
+  it('ignores messages from a replaced worker', async () => {
+    vi.useFakeTimers()
+    const { client, workers } = createHarness(100)
+    const initialized = client.initialize()
+    workers[0].emit({ type: 'ready' })
+    await initialized
+
+    const timedOutRun = client.run('while True: pass')
+    const timeoutRejection = expect(timedOutRun).rejects.toMatchObject({
+      code: 'PYTHON_TIMEOUT',
+    })
+    await vi.advanceTimersByTimeAsync(100)
+    await timeoutRejection
+
+    workers[0].emit({ type: 'ready' })
+    workers[0].emit(result('1', 'stale'))
+    await expect(client.run('6 * 7')).rejects.toMatchObject({
+      code: 'PYTHON_NOT_READY',
+    })
+
+    workers[1].emit({ type: 'ready' })
+    await client.initialize()
+    const recoveredRun = client.run('6 * 7')
+    const request = workers[1].postedMessages.at(-1)
+    if (!request || request.type !== 'run') throw new Error('Run not posted')
+    workers[1].emit(result(request.requestId, '42'))
+    await expect(recoveredRun).resolves.toMatchObject({ result: '42' })
+  })
+
   it('removes listeners and terminates on dispose', () => {
     const { client, workers } = createHarness()
-    expect(workers[0].listenerCount).toBe(1)
+    expect(workers[0].listenerCount).toBe(3)
 
     client.dispose()
 

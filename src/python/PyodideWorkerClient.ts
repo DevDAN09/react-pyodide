@@ -12,6 +12,7 @@ type ClientErrorCode =
   | 'PYTHON_INIT'
   | 'PYTHON_NOT_READY'
   | 'PYTHON_TIMEOUT'
+  | 'PYTHON_WORKER'
 
 interface ClientOptions {
   createWorker?: WorkerFactory
@@ -51,6 +52,8 @@ export class PyodideWorkerClient {
   private readonly timeoutMs: number
   private worker: Worker
   private workerListener: (event: MessageEvent<WorkerResponseMessage>) => void
+  private workerErrorListener: (event: ErrorEvent) => void
+  private workerMessageErrorListener: (event: MessageEvent) => void
   private initialization: Initialization | null = null
   private activeRun: ActiveRun | null = null
   private ready = false
@@ -65,7 +68,9 @@ export class PyodideWorkerClient {
     this.timeoutMs = timeoutMs
     this.worker = this.createWorker()
     this.workerListener = this.createMessageListener(this.worker)
-    this.worker.addEventListener('message', this.workerListener)
+    this.workerErrorListener = this.createErrorListener(this.worker)
+    this.workerMessageErrorListener = this.createMessageErrorListener(this.worker)
+    this.attachWorkerListeners()
   }
 
   initialize(): Promise<void> {
@@ -179,10 +184,12 @@ export class PyodideWorkerClient {
 
     if (message.type === 'init-error') {
       this.ready = false
-      this.initialization?.reject(
+      const initialization = this.initialization
+      this.initialization = null
+      this.replaceWorker()
+      initialization?.reject(
         new PyodideWorkerClientError(message.error, 'PYTHON_INIT'),
       )
-      this.initialization = null
       return
     }
 
@@ -201,6 +208,42 @@ export class PyodideWorkerClient {
     this.worker.postMessage(message)
   }
 
+  private createErrorListener(worker: Worker) {
+    return (event: ErrorEvent) => {
+      if (worker !== this.worker || this.disposed) return
+      this.handleWorkerFailure(event.message || 'The Python worker failed.')
+    }
+  }
+
+  private createMessageErrorListener(worker: Worker) {
+    return (_event: MessageEvent) => {
+      if (worker !== this.worker || this.disposed) return
+      this.handleWorkerFailure('The Python worker sent an unreadable message.')
+    }
+  }
+
+  private handleWorkerFailure(message: string) {
+    const initialization = this.initialization
+    const activeRun = this.activeRun
+    this.initialization = null
+    this.activeRun = null
+
+    if (activeRun) clearTimeout(activeRun.timeout)
+    this.replaceWorker()
+
+    if (initialization) {
+      initialization.reject(
+        new PyodideWorkerClientError(message, 'PYTHON_INIT'),
+      )
+      return
+    }
+
+    activeRun?.reject(
+      new PyodideWorkerClientError(message, 'PYTHON_WORKER'),
+    )
+    void this.initialize().catch(() => undefined)
+  }
+
   private replaceWorker() {
     this.ready = false
     this.initialization?.reject(
@@ -213,11 +256,24 @@ export class PyodideWorkerClient {
     this.detachAndTerminateWorker()
     this.worker = this.createWorker()
     this.workerListener = this.createMessageListener(this.worker)
+    this.workerErrorListener = this.createErrorListener(this.worker)
+    this.workerMessageErrorListener = this.createMessageErrorListener(this.worker)
+    this.attachWorkerListeners()
+  }
+
+  private attachWorkerListeners() {
     this.worker.addEventListener('message', this.workerListener)
+    this.worker.addEventListener('error', this.workerErrorListener)
+    this.worker.addEventListener('messageerror', this.workerMessageErrorListener)
   }
 
   private detachAndTerminateWorker() {
     this.worker.removeEventListener('message', this.workerListener)
+    this.worker.removeEventListener('error', this.workerErrorListener)
+    this.worker.removeEventListener(
+      'messageerror',
+      this.workerMessageErrorListener,
+    )
     this.worker.terminate()
   }
 }
