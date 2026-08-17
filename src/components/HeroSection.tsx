@@ -8,7 +8,9 @@ interface StepCard {
   analogy: string
   title: string
   desc: string
+  animationHighlight: string
   dataLabel: string
+  scenarioNote: string
 }
 
 const STEPS: StepCard[] = [
@@ -17,43 +19,51 @@ const STEPS: StepCard[] = [
     icon: '📝',
     analogy: '주문서 접수',
     title: 'React UI (Main Thread)',
-    desc: '작성한 코드를 받아 화면이 멈추지 않도록 백그라운드로 안전하게 보냅니다.',
-    dataLabel: 'payload: "code string"',
+    desc: '작성한 코드를 받아 화면이 멈추지(Freeze) 않도록 백그라운드로 즉시 전달합니다.',
+    animationHighlight: 'UI 멈춤 차단 (60fps 유지)',
+    dataLabel: 'payload: "print(\'hello\')\\n1 + 2"',
+    scenarioNote: '코드를 작은 데이터 패킷으로 포장해 비동기로 발송',
   },
   {
     step: '02',
     icon: '🛡️',
     analogy: '격리된 조리실',
     title: 'Web Worker (격리 스레드)',
-    desc: '무한 루프나 오류가 나도 브라우저가 뻗지 않도록 10초 타임아웃을 감시합니다.',
-    dataLabel: 'postMessage(RUN, id)',
+    desc: '무한 루프나 오류가 발생해도 브라우저가 뻗지 않도록 10초 타임아웃을 안전하게 감시합니다.',
+    animationHighlight: '보호막 돔 가동 (10s Watchdog)',
+    dataLabel: 'postMessage(RUN, id) & Watchdog 10s',
+    scenarioNote: '오류가 나도 메인 화면을 완벽히 보호하는 독립 공간',
   },
   {
     step: '03',
     icon: '⚡',
     analogy: '초소형 엔진',
     title: 'Pyodide CPython (WebAssembly)',
-    desc: '서버 없이 사용자 PC 브라우저 메모리 안에서 파이썬을 빛의 속도로 직접 실행합니다.',
-    dataLabel: 'WASM Memory JIT Exec',
+    desc: '서버 없이 사용자 PC 브라우저 메모리(WASM Heap) 안에서 파이썬을 빛의 속도로 직접 실행합니다.',
+    animationHighlight: 'WASM JIT 고속 연산 중...',
+    dataLabel: 'WASM 32-bit Memory & Native Exec',
+    scenarioNote: 'CPython 바이너리가 내 브라우저에서 직접 계산',
   },
   {
     step: '04',
     icon: '📊',
     analogy: '결과물 배달',
     title: 'I/O Bridge & State Capture',
-    desc: '파이썬의 print() 출력과 연산 결과를 깔끔하게 캡처해 화면에 보여줍니다.',
-    dataLabel: '{ stdout, result, 0ms }',
+    desc: '파이썬의 print() 출력과 연산 결과값을 분리·캡처해 화면의 결과창으로 배달합니다.',
+    animationHighlight: '결과 패킷 화면 전달 완료!',
+    dataLabel: '{ stdout: "hello", result: "3", durationMs: 0.8ms }',
+    scenarioNote: '콘솔 출력과 반환값을 깔끔하게 정리해 화면에 렌더링',
   },
 ]
 
 export function HeroSection({ runnerState = 'ready' }: { runnerState?: RunnerState }) {
   const [activeStep, setActiveStep] = useState<number>(0)
-  const [isSimulating, setIsSimulating] = useState<boolean>(false)
+  const [isPlaying, setIsPlaying] = useState<boolean>(false)
 
   // Real runner state triggers flow animation
   useEffect(() => {
     if (runnerState === 'running') {
-      setIsSimulating(true)
+      setIsPlaying(true)
       setActiveStep(1)
       const t1 = setTimeout(() => setActiveStep(2), 600)
       const t2 = setTimeout(() => setActiveStep(3), 1200)
@@ -61,31 +71,33 @@ export function HeroSection({ runnerState = 'ready' }: { runnerState?: RunnerSta
         clearTimeout(t1)
         clearTimeout(t2)
       }
-    } else {
-      if (runnerState === 'ready') {
-        setActiveStep(0)
-      }
+    } else if (runnerState === 'ready') {
+      setActiveStep(0)
     }
   }, [runnerState])
 
   // Interactive user simulation loop
   useEffect(() => {
-    if (!isSimulating || runnerState === 'running') return
+    if (!isPlaying || runnerState === 'running') return
     const interval = setInterval(() => {
       setActiveStep((prev) => {
         if (prev >= 3) {
-          setIsSimulating(false)
+          setIsPlaying(false)
           return 0
         }
         return prev + 1
       })
-    }, 1100)
+    }, 1400)
     return () => clearInterval(interval)
-  }, [isSimulating, runnerState])
+  }, [isPlaying, runnerState])
 
-  const handleStartSimulation = () => {
-    setActiveStep(0)
-    setIsSimulating(true)
+  const handleToggleSimulation = () => {
+    if (isPlaying) {
+      setIsPlaying(false)
+    } else {
+      setActiveStep(0)
+      setIsPlaying(true)
+    }
   }
 
   const getStatusBadge = () => {
@@ -105,6 +117,7 @@ export function HeroSection({ runnerState = 'ready' }: { runnerState?: RunnerSta
   }
 
   const status = getStatusBadge()
+  const currentStepData = STEPS[activeStep]
 
   return (
     <section className="hero-section" aria-labelledby="hero-title">
@@ -114,12 +127,12 @@ export function HeroSection({ runnerState = 'ready' }: { runnerState?: RunnerSta
         <div className="hero-controls">
           <button
             type="button"
-            className="sim-button"
-            onClick={handleStartSimulation}
-            disabled={isSimulating || runnerState === 'running'}
-            aria-label="데이터 흐름 시뮬레이션 시작"
+            className={`sim-button ${isPlaying ? 'playing' : ''}`}
+            onClick={handleToggleSimulation}
+            disabled={runnerState === 'running'}
+            aria-label="데이터 흐름 시뮬레이션 토글"
           >
-            {isSimulating ? '🔄 데이터 전달 중...' : '▶️ 동작 원리 시뮬레이션'}
+            {isPlaying ? '⏸️ 일시 정지' : '▶️ 시나리오 애니메이션 재생'}
           </button>
           <div className={`runtime-status-pill ${status.className}`}>
             <span className="status-indicator-dot"></span>
@@ -133,31 +146,53 @@ export function HeroSection({ runnerState = 'ready' }: { runnerState?: RunnerSta
         서버로 코드를 보내지 않습니다. 내 컴퓨터 브라우저 안에서 <strong>WebAssembly(WASM)</strong> 엔진이 직접 파이썬을 실행합니다.
       </p>
 
-      {/* Artifact-style Visual Flow Tracker */}
-      <div className="pipeline-visual-track" aria-label="WASM 실행 파이프라인 단계">
-        <div className="track-bar-background">
-          <div
-            className="track-bar-progress"
-            style={{ width: `${(activeStep / (STEPS.length - 1)) * 100}%` }}
-          />
+      {/* Artifact Animation Stage */}
+      <div className="animation-stage-box">
+        <div className="stage-header">
+          <div className="packet-indicator-wrapper">
+            <span className="live-pulse-badge">LIVE FLOW</span>
+            <span className="current-stage-title">
+              STEP {currentStepData.step}: {currentStepData.analogy} ({currentStepData.title})
+            </span>
+          </div>
+          <span className="stage-highlight-tag">{currentStepData.animationHighlight}</span>
         </div>
-        <div className="track-dots">
-          {STEPS.map((s, idx) => (
+
+        {/* Pipeline Progress Track with Traveling Beam */}
+        <div className="pipeline-visual-track" aria-label="WASM 실행 파이프라인 단계">
+          <div className="track-bar-background">
             <div
-              key={s.step}
-              className={`track-dot ${idx <= activeStep ? 'active' : ''} ${
-                idx === activeStep ? 'current' : ''
-              }`}
-              onClick={() => {
-                setIsSimulating(false)
-                setActiveStep(idx)
-              }}
-              title={`${s.analogy} (${s.title})`}
-            >
-              <span className="dot-number">{s.step}</span>
-              <span className="dot-label">{s.analogy}</span>
-            </div>
-          ))}
+              className="track-bar-progress"
+              style={{ width: `${(activeStep / (STEPS.length - 1)) * 100}%` }}
+            />
+          </div>
+          <div className="track-dots">
+            {STEPS.map((s, idx) => (
+              <div
+                key={s.step}
+                className={`track-dot ${idx <= activeStep ? 'active' : ''} ${
+                  idx === activeStep ? 'current' : ''
+                }`}
+                onClick={() => {
+                  setIsPlaying(false)
+                  setActiveStep(idx)
+                }}
+                title={`${s.analogy} (${s.title})`}
+              >
+                <span className="dot-number">{s.step}</span>
+                <span className="dot-label">{s.analogy}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Live Scenario Story Box */}
+        <div className="scenario-story-banner">
+          <span className="story-icon">{currentStepData.icon}</span>
+          <div className="story-content">
+            <strong>{currentStepData.scenarioNote}</strong>
+            <code>{currentStepData.dataLabel}</code>
+          </div>
         </div>
       </div>
 
@@ -175,13 +210,13 @@ export function HeroSection({ runnerState = 'ready' }: { runnerState?: RunnerSta
                 isPast ? 'card-past' : ''
               }`}
               onClick={() => {
-                setIsSimulating(false)
+                setIsPlaying(false)
                 setActiveStep(index)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  setIsSimulating(false)
+                  setIsPlaying(false)
                   setActiveStep(index)
                 }
               }}
