@@ -14,7 +14,7 @@ export function App({ client }: { client?: PythonRunnerClient }) {
 
   return (
     <main>
-      <HeroSection />
+      <HeroSection runnerState={runner.state} />
       <CodeEditor {...runner} />
       <CurrentResult result={runner.currentResult} />
     </main>
